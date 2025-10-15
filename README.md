@@ -47,7 +47,7 @@ python -m pip install --user poetry
 
 ### 2) Clonar el repositorio
 ```bash
-git clone https://github.com/<tu_usuario>/etl-bogota-seguridad-vial.git
+git clone https://github.com/jandresjn/etl_2025_final_project
 cd etl-bogota-seguridad-vial
 ```
 
@@ -103,6 +103,32 @@ El dashboard queda disponible en `http://localhost:8501` con:
 - Indicadores por localidad y tasa de mortalidad
 
 ![Dashboard captura 1](assets/dashboard-1.png)
+
+----
+##  Interacción con el Dashboard (Streamlit)
+
+La aplicación permite explorar de forma interactiva los datos de seguridad vial de Bogotá (2018) mediante filtros, controles y visualizaciones dinámicas.
+
+###  Controles principales
+
+- **Heatmap de comparendos:** muestra la concentración de infracciones en el mapa usando un gradiente de color.  
+- **Puntos de siniestros:** despliega una muestra aleatoria de siniestros como puntos rojos sobre el mapa.  
+- **Semáforos:** visualiza una muestra de la red semafórica como puntos amarillos.  
+- **Opacidad de hotspots:** ajusta la transparencia de la capa de zonas críticas (hotspots).  
+- **Radio del heatmap:** controla el área de influencia de cada punto en el mapa de calor.  
+- **Difuminado del heatmap (blur):** define la suavidad de los bordes del mapa de calor.  
+- **Muestra de siniestros:** permite reducir la cantidad de puntos para mejorar el rendimiento.  
+- **Muestra de semáforos:** selecciona cuántos puntos de la red semafórica se mostrarán.
+
+###  Visualizaciones disponibles
+
+- **Mapa interactivo:** combina capas de calor, puntos de siniestros y semáforos para análisis espacial.  
+- **Gráficas por localidad:** compara el número de comparendos, siniestros y tasas de mortalidad entre localidades.  
+- **Distribución por distancia a semáforos:** analiza el porcentaje de siniestros según su proximidad a un semáforo.  
+
+###  Funcionamiento
+
+Cada cambio en los filtros o sliders actualiza el dashboard automáticamente, facilitando el análisis exploratorio y comparativo sin necesidad de recargar la aplicación.
 
 ----
 
