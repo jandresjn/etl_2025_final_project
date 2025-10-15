@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 import streamlit as st
@@ -7,25 +8,46 @@ import folium
 from folium.plugins import HeatMap
 import plotly.express as px
 
+# ------------------------- Configuración general -------------------------
 st.set_page_config(page_title="Seguridad Vial Bogotá 2018", layout="wide")
 
+# ------------------------- Rutas seguras -------------------------
+BASE_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = BASE_DIR / "data"
 
-# ------------------------- Carga -------------------------
-@st.cache_data
+FILES = {
+    "kpi_g": DATA_DIR / "analytics/kpi_global.parquet",
+    "kpi_loc": DATA_DIR / "analytics/kpi_localidad.parquet",
+    "grid": DATA_DIR / "analytics/grid_hotspots.geojson",
+    "comp": DATA_DIR / "clean/comparendos_2018_loc.parquet",
+    "sin": DATA_DIR / "clean/siniestralidad_2018_loc.parquet",
+    "prox": DATA_DIR / "clean/siniestralidad_2018_dist_semaforos.parquet",
+    "sem": DATA_DIR / "raw/semaforos/semaforos_raw.parquet",
+}
+
+
+# ------------------------- Carga de datos -------------------------
+@st.cache_data(show_spinner="Cargando datos...")
 def load_data():
-    kpi_g = pd.read_parquet("data/analytics/kpi_global.parquet")
-    kpi_loc = pd.read_parquet("data/analytics/kpi_localidad.parquet")
-    grid = gpd.read_file("data/analytics/grid_hotspots.geojson")
-    comp = pd.read_parquet("data/clean/comparendos_2018_loc.parquet")
-    sin = pd.read_parquet("data/clean/siniestralidad_2018_loc.parquet")
-    prox = pd.read_parquet("data/clean/siniestralidad_2018_dist_semaforos.parquet")
-    sem = pd.read_parquet("data/raw/semaforos/semaforos_raw.parquet")
+    missing = [str(v) for v in FILES.values() if not v.exists()]
+    if missing:
+        st.error(f"Archivos faltantes:\n{chr(10).join(missing)}")
+        st.stop()
+
+    kpi_g = pd.read_parquet(FILES["kpi_g"])
+    kpi_loc = pd.read_parquet(FILES["kpi_loc"])
+    grid = gpd.read_file(FILES["grid"])
+    comp = pd.read_parquet(FILES["comp"])
+    sin = pd.read_parquet(FILES["sin"])
+    prox = pd.read_parquet(FILES["prox"])
+    sem = pd.read_parquet(FILES["sem"])
+
     return kpi_g, kpi_loc, grid, comp, sin, prox, sem
 
 
 kpi_g, kpi_loc, grid, comp, sin, prox, sem = load_data()
 
-# Normalizaciones livianas
+# ------------------------- Normalizaciones -------------------------
 if "LOCALIDAD" in kpi_loc.columns:
     kpi_loc["localidad_plot"] = kpi_loc["LOCALIDAD"].str.title()
 elif "localidad" in kpi_loc.columns:
@@ -64,7 +86,6 @@ st.subheader("Mapa de hotspots y capas")
 with st.container():
     m = folium.Map(location=[4.65, -74.1], zoom_start=11, tiles="CartoDB positron")
 
-    # Heatmap comparendos
     if show_heat_comp and {"lat", "lon"}.issubset(comp.columns):
         HeatMap(
             comp[["lat", "lon"]].dropna().values.tolist(),
@@ -73,10 +94,9 @@ with st.container():
             name="Heatmap comparendos",
         ).add_to(m)
 
-    # Puntos siniestros (muestra)
-    if show_pts_sin and {"lat", "lon"}.issubset(sin.columns) and len(sin) > 0:
+    if show_pts_sin and {"lat", "lon"}.issubset(sin.columns):
         layer_sin = folium.FeatureGroup(name="Siniestros (muestra)", show=True)
-        for _, r in sin.sample(min(sample_sin, len(sin))).iterrows():
+        for _, r in sin.sample(min(sample_sin, len(sin)), random_state=42).iterrows():
             folium.CircleMarker(
                 [r["lat"], r["lon"]],
                 radius=2,
@@ -86,10 +106,9 @@ with st.container():
             ).add_to(layer_sin)
         layer_sin.add_to(m)
 
-    # Semáforos (muestra)
-    if show_sem and {"lat", "lon"}.issubset(sem.columns) and len(sem) > 0:
+    if show_sem and {"lat", "lon"}.issubset(sem.columns):
         layer_sem = folium.FeatureGroup(name="Semáforos (muestra)", show=True)
-        for _, r in sem.sample(min(sample_sem, len(sem))).iterrows():
+        for _, r in sem.sample(min(sample_sem, len(sem)), random_state=42).iterrows():
             folium.CircleMarker(
                 [r["lat"], r["lon"]],
                 radius=1.5,
@@ -99,11 +118,11 @@ with st.container():
             ).add_to(layer_sem)
         layer_sem.add_to(m)
 
-    # Grid hotspots
     if "score" in grid.columns:
         max_score = max(grid["score"].max(), 1)
+        grid_json = grid.copy()
         folium.GeoJson(
-            grid.to_json(),
+            grid_json.to_json(),
             name="Hotspots (500 m)",
             style_function=lambda x: {
                 "fillColor": "#000000",
@@ -123,13 +142,12 @@ with st.container():
         ).add_to(m)
 
     folium.LayerControl(collapsed=False).add_to(m)
-    st_folium(m, height=640, width=None)
+    st_folium(m, height=640, width=None, returned_objects=[])
 
 # ------------------------- Barras por localidad -------------------------
 st.subheader("Comparendos, siniestros y mortalidad por localidad (2018)")
 
 
-# Inferir nombres de columnas en tu kpi_localidad
 def pick_col(cands):
     for c in cands:
         if c in kpi_loc.columns:
@@ -152,10 +170,8 @@ left, right = st.columns([2, 1], gap="large")
 with left:
     if col_comp and col_sin and col_loc:
         top_by = st.selectbox("Ordenar por", ["siniestros", "comparendos"], index=0)
-        if top_by == "siniestros":
-            plot_df_ord = plot_df.sort_values(col_sin, ascending=False)
-        else:
-            plot_df_ord = plot_df.sort_values(col_comp, ascending=False)
+        order_col = col_sin if top_by == "siniestros" else col_comp
+        plot_df_ord = plot_df.sort_values(order_col, ascending=False)
 
         fig = px.bar(
             plot_df_ord,
@@ -188,7 +204,6 @@ with right:
 # ------------------------- Distancias a semáforos -------------------------
 st.subheader("Distribución de siniestros por distancia al semáforo más cercano")
 if "dist_bucket" in prox.columns:
-    # Renombrar a etiquetas legibles
     map_labels = {
         "0-100m": "0–100 m",
         "100-300m": "100–300 m",
@@ -219,6 +234,5 @@ if "dist_bucket" in prox.columns:
 
 # ------------------------- Footer -------------------------
 st.caption(
-    "Datos: Comparendos 2018 (ArcGIS), Anuario de Siniestralidad 2018, Red Semafórica (SIMUR), Localidades (GeoJSON), "
-    "Mortalidad (OSB). © Proyecto ETL 2025-2."
+    "Datos: Comparendos 2018 (ArcGIS), Anuario de Siniestralidad 2018, Red Semafórica (SIMUR), Localidades (GeoJSON), Mortalidad (OSB). Proyecto ETL 2025-2."
 )

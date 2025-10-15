@@ -59,3 +59,7 @@ clean:
 	@echo "🧹 Limpiando..."
 	rm -rf data/working/*.json data/clean/*.parquet data/analytics/*.parquet data/analytics/*.geojson
 	@echo "✅ Ok."
+
+# Lo imprimo para ver la data impresa, por si acaso....
+interpret:
+	$(PYTHON) -m src.analytics.interpretacion_resultados
