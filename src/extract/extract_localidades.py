@@ -1,18 +1,18 @@
 # Uso: python -m src.extract.extract_localidades
+# Carga polígonos de localidades (GeoJSON oficial)
 import os, geopandas as gpd
 
-RAW = "data/raw"
+RAW = "data/raw/localidades"
 os.makedirs(RAW, exist_ok=True)
 
-# GeoJSON de localidades (ajusta ruta/URL real)
-SOURCE = "data/raw/localidades.geojson"
+URL = "https://opendata.arcgis.com/datasets/8258cb6db7a04d3c86ad02e65ef2e8ed_0.geojson"  # localidades Bogotá
 
 
 def main():
-    gdf = gpd.read_file(SOURCE)
+    gdf = gpd.read_file(URL)
     gdf = gdf.to_crs(4326)
-    gdf.to_file("data/raw/localidades_4326.geojson", driver="GeoJSON")
-    print("OK:", len(gdf), "polygons → data/raw/localidades_4326.geojson")
+    gdf.to_file(f"{RAW}/localidades.geojson", driver="GeoJSON")
+    print("OK localidades → data/raw/localidades/localidades.geojson", len(gdf))
 
 
 if __name__ == "__main__":
