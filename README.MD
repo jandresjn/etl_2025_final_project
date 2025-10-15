@@ -1,6 +1,10 @@
 # ETL Bogotá – Seguridad Vial 2018
 Pipeline ETL para integrar comparendos 2018, siniestralidad 2018 (geocodificada), red semafórica y localidades, con dashboard Streamlit (mapa + KPIs).
 
+## Integrantes
+- Jorge Andres Jaramillo Neme
+- Luis Fernando Meza
+
 ## Preguntas
 1) Hotspots de comparendos 2018  
 2) Hotspots de siniestros 2018  
