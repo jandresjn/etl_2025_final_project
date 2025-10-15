@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "etl-2025-final-project"
+version = "0.1.0"
+description = ""
+authors = ["Jorge Jaramillo N <Jandresjn@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+requests = "^2.32.5"
+geopandas = "^1.1.1"
+tqdm = "^4.67.1"
+sodapy = "^2.2.0"
+pyarrow = "^21.0.0"
+openpyxl = "^3.1.5"
+geopy = "^2.4.1"
+python-dotenv = "^1.1.1"
+googlemaps = "^4.10.0"
+scipy = "^1.16.2"
+streamlit = "^1.50.0"
+streamlit-folium = "^0.25.3"
+plotly = "^6.3.1"
+folium = "^0.20.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

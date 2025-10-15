@@ -1,34 +1,66 @@
 # Uso: python -m src.transform.calc_proximidad_semaforos
-import os, geopandas as gpd, pandas as pd
+# Calcula distancia al semáforo más cercano (m) y buckets.
 
-CLEAN = "data/clean"
-RAW = "data/raw"
-os.makedirs(CLEAN, exist_ok=True)
+import os, pandas as pd, geopandas as gpd
+from scipy.spatial import cKDTree
+import numpy as np
+
+RAW_SEM = "data/raw/semaforos/semaforos_raw.parquet"
+CLEAN_DIR = "data/clean"
+OUT_COMP = f"{CLEAN_DIR}/comparendos_2018_dist_semaforos.parquet"
+OUT_SIN = f"{CLEAN_DIR}/siniestralidad_2018_dist_semaforos.parquet"
+
+
+def _nearest_dist_m(points_gdf, sem_gdf):
+    p_3857 = points_gdf.to_crs(3857)
+    s_3857 = sem_gdf.to_crs(3857)
+    tree = cKDTree(np.c_[s_3857.geometry.x, s_3857.geometry.y])
+    dist, _ = tree.query(np.c_[p_3857.geometry.x, p_3857.geometry.y], k=1)
+    return dist  # metros en 3857
+
+
+def _bucket(d):
+    if pd.isna(d):
+        return "SIN_COORD"
+    if d <= 100:
+        return "0-100m"
+    if d <= 300:
+        return "100-300m"
+    return ">300m"
+
+
+def _to_points(df):
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(df["lon"], df["lat"]), crs=4326
+    )
+    return gdf.dropna(subset=["geometry"])
 
 
 def main():
-    sin = pd.read_parquet(f"{CLEAN}/siniestralidad_2018_loc.parquet")
-    sem = pd.read_parquet(f"{RAW}/semaforos.parquet")
-    sin_g = gpd.GeoDataFrame(
-        sin, geometry=gpd.points_from_xy(sin["lon"], sin["lat"]), crs=4326
-    ).to_crs(3857)
-    sem_g = gpd.GeoDataFrame(
+    sem = pd.read_parquet(RAW_SEM)
+    gsem = gpd.GeoDataFrame(
         sem, geometry=gpd.points_from_xy(sem["lon"], sem["lat"]), crs=4326
-    ).to_crs(3857)
+    ).dropna(subset=["geometry"])
 
-    # Buenas prácticas: sjoin_nearest (distancia en metros en EPSG:3857)
-    joined = gpd.sjoin_nearest(
-        sin_g, sem_g[["geometry"]], how="left", distance_col="dist_m"
+    comp = pd.read_parquet(f"{CLEAN_DIR}/comparendos_2018_loc.parquet").dropna(
+        subset=["lat", "lon"]
     )
-    bins = [0, 100, 300, 1e9]
-    labels = ["<100 m", "100–300 m", ">300 m"]
-    joined["dist_bucket"] = pd.cut(
-        joined["dist_m"], bins=bins, labels=labels, right=True
+    sin = pd.read_parquet(f"{CLEAN_DIR}/siniestralidad_2018_loc.parquet").dropna(
+        subset=["lat", "lon"]
     )
-    joined.to_parquet(
-        f"{CLEAN}/siniestralidad_2018_proximidad_semaforos.parquet", index=False
-    )
-    print("OK → data/clean/siniestralidad_2018_proximidad_semaforos.parquet")
+
+    gcomp = _to_points(comp)
+    gsin = _to_points(sin)
+
+    comp["dist_sem_m"] = _nearest_dist_m(gcomp, gsem)
+    sin["dist_sem_m"] = _nearest_dist_m(gsin, gsem)
+
+    comp["dist_bucket"] = comp["dist_sem_m"].map(_bucket)
+    sin["dist_bucket"] = sin["dist_sem_m"].map(_bucket)
+
+    comp.to_parquet(OUT_COMP, index=False)
+    sin.to_parquet(OUT_SIN, index=False)
+    print(f"OK → {OUT_COMP} | {OUT_SIN}")
 
 
 if __name__ == "__main__":
